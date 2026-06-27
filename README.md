@@ -24,6 +24,8 @@ Accept Pi Network cryptocurrency payments in your WooCommerce store.
 4. Go to **WooCommerce > Settings > Payments > Pi Network Payment**
 5. Enter your Pi App ID and API Key
 6. Enable Sandbox mode for testing
+7. Go to **Pages** → **Checkout** → **Edit** → Click **Switch to classic checkout**
+8. Save the page
 
 ## Requirements
 
