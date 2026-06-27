@@ -1,0 +1,53 @@
+/* Pi Pay for WooCommerce - Checkout Styles */
+
+#pi-pay-container {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.pi-pay-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #6200ea;
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.pi-pay-button:hover {
+    background: #4a00b0;
+}
+
+.pi-pay-button:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+}
+
+.pi-pay-ready-btn {
+    background: #22c55e;
+    margin-top: 10px;
+}
+
+.pi-pay-ready-btn:hover {
+    background: #16a34a;
+}
+
+#pi-pay-status {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.pi-pay-logo {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+}
