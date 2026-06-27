@@ -2,7 +2,7 @@
 Contributors: khalidxpert
 Tags: pi network, pi payment, cryptocurrency, woocommerce, payment gateway
 Requires at least: 5.0
-Tested up to: 6.5
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.0.0
 License: GPLv2 or later
