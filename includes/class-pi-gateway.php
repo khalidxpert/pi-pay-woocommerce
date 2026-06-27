@@ -4,11 +4,11 @@ if (!defined('ABSPATH')) exit;
 class XpertPi_Gateway extends WC_Payment_Gateway {
 
     public function __construct() {
-        $this->id                 = 'pi_pay';
+        $this->id                 = 'xpertcreation_pi_pay';
         $this->icon               = PI_PAY_PLUGIN_URL . 'assets/images/pi-logo.png';
         $this->has_fields         = true;
-        $this->method_title       = 'Pi Network Payment';
-        $this->method_description = 'Accept Pi cryptocurrency payments via Pi Network SDK.';
+        $this->method_title       = 'XpertCreation Pi Network Payment';
+        $this->method_description = 'Accept Pi cryptocurrency payments via Pi Network SDK. Not officially affiliated with Pi Network.';
         $this->supports           = ['products'];
 
         $this->init_form_fields();
