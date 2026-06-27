@@ -1,127 +1,98 @@
-/* Pi Pay for WooCommerce - Checkout JS */
+/* XpertCreation Pi Network Payments for WooCommerce - Checkout JS */
 jQuery(document).ready(function($) {
 
-    var piAuthenticated = false;
     var piUser = null;
-    var piPaymentId = null;
+    var BACKEND = '/api';
 
-    // Initialize Pi SDK
-    function initPi() {
-        if (typeof Pi === 'undefined') {
-            console.error('Pi SDK not loaded');
-            return;
-        }
-        Pi.init({
-            version: "2.0",
-            sandbox: pi_pay_params.sandbox === 'true'
-        });
+    function setStatus(msg, type) {
+        var el = document.getElementById('pi-pay-status');
+        if (!el) return;
+        el.className = 'status ' + type;
+        el.innerHTML = msg;
+        el.style.display = 'block';
     }
 
-    // Authenticate with Pi
-    $('#pi-pay-btn').on('click', function() {
-        var btn = $(this);
-        btn.prop('disabled', true).text('Authenticating...');
-        setStatus('Connecting to Pi Network...', 'loading');
+    async function onIncompletePaymentFound(payment) {
+        var txid = payment.transaction ? payment.transaction.txid : null;
+        if (!txid) { console.log('No txid - skipping'); return; }
+        try {
+            await fetch(BACKEND + '/payments/approve/', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ paymentId: payment.identifier })
+            });
+            await fetch(BACKEND + '/payments/complete/', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ paymentId: payment.identifier, txid: txid, amount: payment.amount, platform: 'woocommerce' })
+            });
+            console.log('Incomplete payment completed!');
+        } catch(e) { console.log('Error:', e); }
+    }
 
-        Pi.authenticate(['payments'], function(auth) {
-            piAuthenticated = true;
+    try {
+        window.Pi.init({ version: '2.0', sandbox: pi_pay_params.sandbox === 'true' });
+    } catch(e) { console.log(e); }
+
+    $('#pi-pay-btn').on('click', async function() {
+        var btn = document.getElementById('pi-pay-btn');
+        btn.innerHTML = '⏳ Authenticating...';
+        btn.disabled = true;
+        try {
+            var auth = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
             piUser = auth.user;
             $('#pi_username').val(piUser.username);
-
-            setStatus('✅ Authenticated as @' + piUser.username + '. Click "Place Order" to pay.', 'success');
-            btn.hide();
+            setStatus('✅ Hello @' + piUser.username + '! Click Pay 1 Pi', 'success');
+            $(btn).hide();
             $('#pi-pay-ready').show();
-        }, function(err) {
-            console.error('Pi auth error:', err);
-            setStatus('❌ Authentication failed. Please try again.', 'error');
-            btn.prop('disabled', false).html('<img src="' + getLogoUrl() + '" width="20" height="20"> Authenticate with Pi');
-        });
+        } catch(e) {
+            setStatus('❌ ' + e.message, 'error');
+            btn.innerHTML = '🥧 Authenticate with Pi';
+            btn.disabled = false;
+        }
     });
 
-    // Handle payment when order is placed
-    $('form.checkout').on('checkout_place_order_pi_pay', function() {
-        if (!piAuthenticated || !piUser) {
-            alert('Please authenticate with Pi Network first.');
-            return false;
-        }
+    $('form.checkout').on('checkout_place_order_xpertcreation_pi_pay', function() {
+        if (!piUser) { alert('Please authenticate with Pi Network first.'); return false; }
 
         var orderTotal = parseFloat($('.order-total .amount').last().text().replace(/[^0-9.]/g, ''));
-        var piAmount = getPiAmount(orderTotal);
-
+        var rate = parseFloat(pi_pay_params.pi_rate) || 0.127;
+        var piAmount = Math.ceil((orderTotal / rate) * 100) / 100;
         $('#pi_amount').val(piAmount);
 
-        // Create Pi payment
-        Pi.createPayment({
+        window.Pi.createPayment({
             amount: piAmount,
-            memo: 'WooCommerce Order Payment',
-            metadata: {
-                orderId: 'pending',
-                store: window.location.hostname
-            }
+            memo: 'XpertCreation WooCommerce Order',
+            metadata: { type: 'woocommerce', store: window.location.hostname }
         }, {
-            onReadyForServerApproval: function(paymentId) {
-                piPaymentId = paymentId;
-                $('#pi_payment_id').val(paymentId);
-
-                // Approve on server
-                $.ajax({
-                    url: pi_pay_params.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'pi_pay_approve',
-                        payment_id: paymentId,
-                        nonce: pi_pay_params.nonce
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            setStatus('✅ Payment approved! Completing...', 'success');
-                        }
-                    }
-                });
+            onReadyForServerApproval: async function(pid) {
+                $('#pi_payment_id').val(pid);
+                setStatus('⏳ Approving...', 'loading');
+                try {
+                    await fetch(BACKEND + '/payments/approve/', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ paymentId: pid, amount: piAmount })
+                    });
+                } catch(e) {}
             },
-            onReadyForServerCompletion: function(paymentId, txid) {
-                setStatus('✅ Payment complete! Finalizing order...', 'success');
-                $('#pi_payment_id').val(paymentId);
+            onReadyForServerCompletion: async function(pid, txid) {
+                $('#pi_payment_id').val(pid);
+                try {
+                    await fetch(BACKEND + '/payments/complete/', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ paymentId: pid, txid: txid, amount: piAmount, platform: 'woocommerce' })
+                    });
+                } catch(e) {}
+                setStatus('🎉 Payment Successful!', 'success');
                 $('form.checkout').submit();
             },
-            onCancel: function(paymentId) {
-                setStatus('❌ Payment cancelled.', 'error');
-            },
-            onError: function(error, payment) {
-                console.error('Pi payment error:', error);
-                setStatus('❌ Payment error: ' + error.message, 'error');
+            onCancel: function() { setStatus('❌ Payment cancelled', 'error'); },
+            onError: function(e, payment) {
+                if(payment) onIncompletePaymentFound(payment);
+                setStatus('❌ ' + e.message, 'error');
             }
         });
-
-        return false; // Prevent normal form submit
+        return false;
     });
 
-    function getPiAmount(usdAmount) {
-        // Use live rate or fixed rate
-        var rate = parseFloat(pi_pay_params.pi_rate) || 0.127;
-        return Math.ceil((usdAmount / rate) * 100) / 100;
-    }
-
-    function setStatus(message, type) {
-        var colors = {
-            loading: '#f7a600',
-            success: '#22c55e',
-            error: '#ef4444'
-        };
-        $('#pi-pay-status').html('<p style="color:' + (colors[type] || '#fff') + '; margin:8px 0;">' + message + '</p>');
-    }
-
-    function getLogoUrl() {
-        return pi_pay_params.plugin_url + 'assets/images/pi-logo.png';
-    }
-
-    // Init on load
-    initPi();
-
-    // Add ready button (hidden initially)
-    $('#pi-pay-container').append('<button type="button" id="pi-pay-ready" style="display:none;" class="pi-pay-button pi-pay-ready-btn">💰 Pay with Pi</button>');
-
-    $('#pi-pay-ready').on('click', function() {
-        $('form.checkout').submit();
-    });
+    $('#pi-pay-container').append('<button type="button" id="pi-pay-ready" style="display:none;" class="pi-pay-button">💰 Pay with Pi</button>');
+    $('#pi-pay-ready').on('click', function() { $('form.checkout').submit(); });
 });
